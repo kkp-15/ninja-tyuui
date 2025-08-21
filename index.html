@@ -2,279 +2,167 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>⚠️ 注意喚起｜クリックジャッキングで1Passwordの自動入力が悪用される恐れ</title>
-  <meta name="description" content="1Passwordなどのパスワードマネージャの“インライン候補”を透明レイヤーで乗っ取るクリックジャッキング手口の注意喚起。仕組み・見分け方・安全な設定（候補の自動表示オフ、正確ホストのみで埋める等）をスマホ向けにわかりやすく解説。" />
-  <link rel="canonical" href="https://example.com/clickjacking-1password" />
-  <meta name="robots" content="index,follow" />
+  <title>⚠️ クリックジャッキング体験（安全デモ）｜1Passwordの候補を“乗っ取る”とは？</title>
+  <meta name="description" content="クリックジャッキングの仕組みを10秒で体験。実データ送信なし・外部通信なし・実UI呼び出しなしの安全デモ。対策：候補の自動表示オフ／Exact hostなど。" />
+  <!-- ✅ このページは実データ送信を一切しません（CSPでフォーム送信＆外部通信をブロック） -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">
   <meta name="theme-color" content="#0f172a" />
-  <!-- OGP -->
-  <meta property="og:type" content="article">
-  <meta property="og:title" content="クリックジャッキングで1Passwordの自動入力が悪用される恐れ｜注意喚起" />
-  <meta property="og:description" content="仕組み・見分け方・実用対策（候補自動表示オフ／正確ホストのみ 等）をスマホ向けに図解。" />
-  <meta property="og:url" content="https://example.com/clickjacking-1password" />
   <style>
-    /* ===== ベース（モバイル優先・横スクロール抑止） ===== */
-    :root{
-      --bg: #0b1220;
-      --panel: #0f172a;
-      --text: #e5e7eb;
-      --muted:#a5b4fc;
-      --accent:#60a5fa;
-      --good:#34d399;
-      --warn:#fbbf24;
-      --bad:#f87171;
-      --card:#111827;
-      --code:#0a0f1a;
-      --border: rgba(255,255,255,.08);
-    }
-    @media (prefers-color-scheme: light){
-      :root{ --bg:#f8fafc; --panel:#ffffff; --text:#0f172a; --muted:#4f46e5; --accent:#2563eb; --good:#059669; --warn:#d97706; --bad:#dc2626; --card:#ffffff; --code:#0f172a; --border: rgba(15,23,42,.1);}  
-    }
-    html,body{height:100%;}
-    body{margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; color:var(--text); background: radial-gradient(1200px 600px at 50% -10%, rgba(96,165,250,.15), transparent 60%), var(--bg); line-height:1.6; overflow-x:hidden;}
-    a{color:var(--accent); text-decoration:none}
-    a:hover{text-decoration:underline}
-    .wrap{max-width:980px; margin:0 auto; padding:20px;}
-    header{position:sticky; top:0; z-index:50; backdrop-filter:saturate(1.2) blur(8px); background:color-mix(in oklab, var(--panel) 86%, transparent); border-bottom:1px solid var(--border)}
-    header .inner{display:flex; gap:12px; align-items:center; padding:10px 16px;}
-    .logo{font-weight:800; letter-spacing:.3px}
-    .badge{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; font-size:.85rem; background:linear-gradient(90deg, #1f2937, #0b1220); border:1px solid var(--border)}
-    .badge .dot{width:8px;height:8px;border-radius:50%; background:var(--warn); box-shadow:0 0 8px var(--warn)}
-    nav{margin-left:auto; font-size:.92rem;}
-    nav a{margin-left:14px}
-    h1{font-size:1.6rem; margin:18px 0 10px;}
-    h2{font-size:1.25rem; margin:24px 0 10px;}
-    h3{font-size:1.05rem; margin:18px 0 8px;}
-    .panel{background:linear-gradient(180deg, color-mix(in oklab, var(--panel) 92%, transparent), color-mix(in oklab, var(--card) 90%, transparent)); border:1px solid var(--border); border-radius:16px; padding:16px;}
-    .grid{display:grid; gap:12px}
-    .grid.cols-2{grid-template-columns:1fr;}
-    @media (min-width:820px){ .grid.cols-2{grid-template-columns:1fr 1fr;} }
-    .kicker{font-size:.85rem; color:var(--muted); letter-spacing:.06em}
-    .hero{margin:18px auto 12px;}
-    .callout{border-left:4px solid var(--warn); padding:12px 12px; background:color-mix(in oklab, var(--panel) 80%, transparent); border-radius:10px}
-    .ok{border-left-color:var(--good)}
-    .bad{border-left-color:var(--bad)}
-    .list-check li{list-style:none; padding-left:28px; position:relative; margin:8px 0}
-    .list-check li::before{content:"✔"; position:absolute; left:0; top:0; opacity:.85;}
-    .list-x li::before{content:"✖"}
-    .kbd{display:inline-block; padding:2px 6px; border-radius:6px; border:1px solid var(--border); background:color-mix(in oklab, var(--panel) 75%, transparent); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size:.9em}
-    .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px; border-radius:999px; border:1px solid var(--border); background:linear-gradient(180deg, color-mix(in oklab, var(--card) 88%, transparent), color-mix(in oklab, var(--panel) 86%, transparent)); color:var(--text); cursor:pointer; text-decoration:none}
-    .btn:hover{filter:brightness(1.05)}
-    .btn.warn{border-color: color-mix(in oklab, var(--warn) 40%, var(--border));}
-    .btn.copy{font-size:.95rem}
-    .toc a{display:inline-block; margin:6px 10px 6px 0}
-    .code{background:color-mix(in oklab, var(--panel) 78%, transparent); border:1px solid var(--border); border-radius:12px; padding:12px; overflow:auto}
-    .small{font-size:.92rem; opacity:.86}
-    footer{margin:28px 0 40px; opacity:.9}
-    /* === デモ用 === */
-    .demo-wrap{position:relative; padding:14px; border:1px dashed var(--border); border-radius:12px;}
-    .fake-form{display:grid; gap:10px; background:linear-gradient(180deg, #0c1322, #0b1220); border:1px solid var(--border); border-radius:12px; padding:14px}
-    .fake-form label{font-size:.9rem; opacity:.9}
-    .fake-form input{padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:rgba(255,255,255,.06); color:var(--text);}
-    .fake-submit{margin-top:4px}
-    .attack-overlay{position:absolute; inset:0; display:none;}
-    .attack-overlay.active{display:block}
-    .attack-overlay button{position:absolute; right:18px; top:72px; width:180px; height:36px; background:rgba(255,255,255,.02); border:1px dashed rgba(255,255,255,.25); border-radius:8px; color:#fff}
-    .attack-overlay .hint{position:absolute; right:18px; top:40px; font-size:.85rem; color:var(--warn);}
-    .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0}
+    :root{--bg:#0b1220;--panel:#0f172a;--text:#e5e7eb;--muted:#a5b4fc;--accent:#60a5fa;--good:#34d399;--warn:#fbbf24;--bad:#f87171;--border:rgba(255,255,255,.09)}
+    @media (prefers-color-scheme: light){:root{--bg:#f8fafc;--panel:#ffffff;--text:#0f172a;--muted:#4f46e5;--accent:#2563eb;--good:#059669;--warn:#d97706;--bad:#dc2626;--border:rgba(15,23,42,.12)}}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP","Hiragino Kaku Gothic ProN",Meiryo,sans-serif;color:var(--text);background:var(--bg);line-height:1.6;overflow-x:hidden}
+    .wrap{max-width:720px;margin:0 auto;padding:18px}
+    header{position:sticky;top:0;z-index:10;backdrop-filter:saturate(1.2) blur(8px);background:color-mix(in oklab,var(--panel) 88%,transparent);border-bottom:1px solid var(--border)}
+    header .inner{display:flex;gap:10px;align-items:center;padding:10px 12px}
+    .badge{display:inline-flex;gap:6px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:linear-gradient(180deg, color-mix(in oklab,var(--panel) 92%,transparent), color-mix(in oklab,var(--bg) 90%,transparent));font-size:.86rem}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good)}
+    h1{font-size:1.5rem;margin:14px 0 6px}
+    h2{font-size:1.2rem;margin:16px 0 8px}
+    .panel{background:linear-gradient(180deg,color-mix(in oklab,var(--panel) 96%,transparent),color-mix(in oklab,var(--panel) 90%,transparent));border:1px solid var(--border);border-radius:14px;padding:14px}
+    .hero{margin:14px 0}
+    .list{padding-left:18px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:999px;border:1px solid var(--border);background:linear-gradient(180deg,color-mix(in oklab,var(--panel) 92%,transparent),color-mix(in oklab,var(--bg) 90%,transparent));color:var(--text);cursor:pointer;text-decoration:none}
+    .btn.warn{border-color:color-mix(in oklab,var(--warn) 40%,var(--border))}
+    .note{font-size:.92rem;opacity:.9}
+    .safe-grid{display:grid;gap:8px}
+    @media(min-width:700px){.safe-grid{grid-template-columns:1fr 1fr}}
+    .ok{border-left:4px solid var(--good);padding:10px;background:color-mix(in oklab,var(--panel) 86%,transparent);border-radius:10px}
+    .demo{position:relative;border:1px dashed var(--border);border-radius:12px;padding:14px;margin-top:8px}
+    .field{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .pill{padding:8px 12px;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.06)}
+    .overlay{position:absolute;inset:0;display:none}
+    .overlay.active{display:block}
+    .overlay .ghost{position:absolute;right:14px;top:72px;width:200px;height:40px;background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.25);border-radius:8px}
+    .overlay .hint{position:absolute;right:14px;top:42px;font-size:.85rem;color:var(--warn)}
+    .log{font-family:ui-monospace,Menlo,Consolas,monospace;background:color-mix(in oklab,var(--panel) 82%,transparent);border:1px solid var(--border);border-radius:10px;padding:10px;min-height:72px;white-space:pre-wrap}
+    .watermark{position:fixed;inset:auto -40px 20px auto;rotate:-8deg;opacity:.08;font-weight:900;font-size:42px;pointer-events:none}
+    footer{margin:26px 0 40px;opacity:.9}
+    #footer{margin-top:14px;text-align:center;opacity:.9}
   </style>
 </head>
 <body>
   <header>
-    <div class="inner wrap" style="padding-left:0; padding-right:0;">
-      <span class="badge" aria-label="注意: 最新の注意喚起"><span class="dot" aria-hidden="true"></span> 注意喚起</span>
-      <strong class="logo">クリックジャッキング × 1Password</strong>
-      <nav aria-label="セクション">
-        <a href="#what">概要</a>
-        <a href="#how">仕組み</a>
-        <a href="#protect">対策</a>
-        <a href="#demo">デモ</a>
-        <a href="#faq">FAQ</a>
-      </nav>
+    <div class="inner wrap" style="padding-left:0;padding-right:0">
+      <span class="badge"><span class="dot"></span>100%安全なデモ（送信なし）</span>
+      <strong style="margin-left:8px">クリックジャッキング体験</strong>
     </div>
   </header>  <main class="wrap">
-    <section class="hero panel" id="what">
-      <span class="kicker">Overview</span>
-      <h1>透明レイヤーで“候補”を乗っ取る：<br>クリックジャッキングによる自動入力の悪用</h1>
-      <p>最近報告された手口では、ページ側が <strong>透明のボタンや入力欄を本物のUIの上に重ねる</strong> ことで、<strong>あなたのクリックで1Passwordのインライン候補（自動入力メニュー）を誤操作させ</strong>、隠しフォームに <strong>ログイン・カード情報・住所</strong> などを入力させる恐れがあります。金庫全体が抜かれるわけではありませんが、<strong>条件が揃うと “その場で一致した1件分”</strong> が流出し得ます。</p>
-      <div class="callout bad">
-        <strong>要点：</strong> 不明なサイトで“出てくる候補をタップする”運用は狙われやすい。<br>
-        <strong>推奨：</strong> 候補の<strong>自動表示をオフ</strong>にし、必要時のみ<strong>手動で呼び出す</strong>＋アイテムを<strong>正確なホストに限定</strong>。
-      </div>
-      <div class="toc" aria-label="目次">
-        <a class="btn" href="#how">仕組みを見る</a>
-        <a class="btn" href="#protect">実用対策</a>
-        <button class="btn copy" id="copyChecklist" type="button">チェックリストをコピー</button>
-      </div>
-    </section><section class="panel" id="how">
-  <span class="kicker">How it works</span>
-  <h2>どんな仕組み？（3ステップ）</h2>
-  <ol>
-    <li><strong>重ね合わせ</strong>：攻撃ページが、入力欄やボタンの上に <em>透明の要素</em> を重ねます。</li>
-    <li><strong>誤クリック誘導</strong>：あなたは1Passwordの候補を押したつもりでも、実際は透明要素をクリック。</li>
-    <li><strong>隠しフォームが入力される</strong>：拡張の自動入力がトリガーされ、攻撃側の隠し欄に情報が入る→送信。</li>
-  </ol>
-  <div class="grid cols-2">
-    <div class="callout">
-      <h3>よくある“餌”の例</h3>
-      <ul>
-        <li>クーポン適用／割引コード入力のLP</li>
-        <li>「ログインすると続きが読めます」系の会員ページ</li>
-        <li>支払い風の偽チェックアウトフォーム</li>
-        <li>スマホ向け懸賞・広告LP（狭い画面で位置合わせが容易）</li>
-      </ul>
-    </div>
-    <div class="callout">
-      <h3>違和感サイン</h3>
-      <ul>
-        <li>候補の位置とクリック反応が少しズレる／追従してズレ続ける</li>
-        <li>1クリックで複数欄が一気に埋まり、勝手に送信される</li>
-        <li>ドメインが似せ字・不自然なサブドメイン</li>
-        <li>スクロールや回転でボタン位置が不自然に変わる</li>
-      </ul>
-    </div>
+    <section class="panel hero">
+      <h1>“透明レイヤーでクリックを奪う”を、かんたん体験</h1>
+      <p class="note">このページは <strong>実データ送信なし・外部通信なし・実1Password UI呼び出しなし</strong> の安全な疑似体験サイトです。仕組みだけ理解できます。</p>
+    </section><section class="panel">
+  <h2>なぜ安全？（ここがポイント）</h2>
+  <div class="safe-grid">
+    <div class="ok">フォーム送信は<strong>CSPで禁止</strong>（<code>form-action 'none'</code>）。</div>
+    <div class="ok">外部通信（XHR/fetch/WebSocket）は<strong>禁止</strong>（<code>connect-src 'none'</code>）。</div>
+    <div class="ok">実際の1Password候補は<strong>出しません</strong>（モックのボタンのみ）。</div>
+    <div class="ok">スクリプト/スタイルは<strong>このファイル内のみ</strong>、外部読み込みなし。</div>
   </div>
-</section>
-
-<section class="panel" id="protect">
-  <span class="kicker">Protect</span>
-  <h2>今すぐできる実用対策</h2>
-  <div class="grid cols-2">
-    <div class="callout ok">
-      <h3>1) 候補の<strong>自動表示をオフ</strong>（デスクトップ）</h3>
-      <ol>
-        <li>ブラウザのツールバーで <em>1Password アイコンを右クリック</em> → <strong>Settings（設定）</strong></li>
-        <li><strong>Autofill &amp; save</strong> を開き、<strong>Show autofill menu on field focus</strong> を<strong>オフ</strong></li>
-        <li>（任意）<strong>Sign in automatically after autofill</strong> も<strong>オフ</strong>にすると、誤入力時に即送信されにくい</li>
-      </ol>
-      <p class="small">※ 表記はバージョンやブラウザで多少異なる場合があります。</p>
-    </div>
-    <div class="callout ok">
-      <h3>2) 各ログインの<strong>Autofill behavior</strong>を厳格化</h3>
-      <ol>
-        <li>対象アイテムの編集画面で <strong>Autofill behavior</strong> を選択</li>
-        <li><strong>Only fill on this exact host</strong>（このホストだけ）または <strong>Never fill on this website</strong> を選択</li>
-        <li>サブドメインの誤一致を抑制</li>
-      </ol>
-    </div>
-    <div class="callout">
-      <h3>3) 不明なサイトでは<strong>拡張をロック</strong>維持</h3>
-      <ul class="list-check">
-        <li>必要なときだけ解錠→ツールバーから手動で呼び出し</li>
-        <li>ページ内の小さな“候補バルーン”は直接押さない運用に</li>
-      </ul>
-    </div>
-    <div class="callout">
-      <h3>4) ブラウザ組み込みの保存＆自動入力は<strong>無効化</strong></h3>
-      <p>ブラウザ側のオートフィルと競合させないことで誤操作のリスクを下げます。</p>
-    </div>
-  </div>
-  <details style="margin-top:10px">
-    <summary><strong>Androidの設定ヒント</strong></summary>
-    <ul>
-      <li>1Password アプリ → <em>設定 &gt; Autofill/自動入力</em> から候補の挙動を調整</li>
-      <li>Chrome/Braveなどブラウザ側の保存・自動入力はオフに</li>
-    </ul>
-  </details>
-  <div class="callout" style="margin-top:10px">
-    <h3>共有チェックリスト</h3>
-    <ul class="list-check">
-      <li>候補の自動表示：オフ</li>
-      <li>自動送信：オフ（任意）</li>
-      <li>Autofill behavior：Exact host / Never</li>
-      <li>初見サイトは拡張ロックを維持</li>
-      <li>URL（ドメイン）を必ず確認</li>
-    </ul>
-  </div>
-  <p><a class="btn" href="#links">参考リンクへ</a></p>
 </section>
 
 <section class="panel" id="demo">
-  <span class="kicker">Interactive demo</span>
-  <h2>“重ね合わせ”のイメージ（簡易デモ）</h2>
-  <p class="small">※ 実害のないイメージデモです。透明レイヤーが「候補ボタン」の位置にかぶさる様子を再現します。</p>
-  <div class="demo-wrap">
-    <div class="attack-overlay" id="overlay" aria-hidden="true">
-      <span class="hint">透明レイヤー（見えないボタン）がここに被さっています</span>
-      <button type="button" aria-label="透明レイヤーの偽ボタン">（見えないボタン）</button>
+  <h2>10秒デモ</h2>
+  <ol class="list">
+    <li>まず「悪用レイヤーをON」にします。</li>
+    <li>次に「候補（モック）をクリック」を押します。</li>
+    <li>クリックが<strong>透明ボタンに奪われた</strong>ログが出たら成功！</li>
+  </ol>
+  <div class="demo">
+    <div class="overlay" id="overlay" aria-hidden="true">
+      <span class="hint">👻 透明の偽ボタン（ここにかぶせてあります）</span>
+      <div class="ghost" aria-hidden="true"></div>
     </div>
-    <form class="fake-form" onsubmit="event.preventDefault()">
-      <label>メールアドレス<input type="email" placeholder="you@example.com" required></label>
-      <label>パスワード<input type="password" placeholder="●●●●●●" required></label>
-      <div>
-        <button class="btn" id="fakeCandidate" type="button" aria-describedby="candInfo">1Password 候補をクリック</button>
-        <span id="candInfo" class="sr-only">候補の上に透明ボタンが重なっている場合、クリックは攻撃側に奪われます。</span>
-      </div>
-      <button class="btn fake-submit" type="submit">送信</button>
-    </form>
+    <div class="field" style="margin-bottom:8px">
+      <button class="btn warn" id="toggle" type="button">悪用レイヤー：OFF</button>
+      <span class="pill">メール：you@example.com</span>
+      <span class="pill">パスワード：••••••</span>
+    </div>
+    <div class="field">
+      <button class="btn" id="mock" type="button">候補（モック）をクリック</button>
+      <button class="btn" id="reset" type="button">ログを消す</button>
+    </div>
+    <div id="log" class="log" aria-live="polite" style="margin-top:10px"></div>
   </div>
-  <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap">
-    <button class="btn warn" id="toggleOverlay" type="button">悪用レイヤーを ON / OFF</button>
-    <button class="btn" id="resetDemo" type="button">デモをリセット</button>
-  </div>
-  <div id="demoLog" class="code" style="margin-top:10px" aria-live="polite"></div>
+  <p class="note" style="margin-top:8px">※ 実1Passwordを呼び出す「開発者向け検証モード」は省略しています（安全優先）。必要なら別途ご案内します。</p>
 </section>
 
-<section class="panel" id="faq">
-  <span class="kicker">FAQ</span>
-  <h2>よくある質問</h2>
-  <h3>Q. 金庫の全データが抜かれますか？</h3>
-  <p>A. いいえ。これは <em>その場の自動入力</em> をだまし取る手口で、条件が揃うと<strong>一致した1件分</strong>が入力・送信される恐れがあります。とはいえ、カード番号や住所など単発でも被害は重大です。対策をおすすめします。</p>
-  <h3>Q. どうすれば安全性を高められますか？</h3>
-  <p>A. 候補の<strong>自動表示をオフ</strong>にし、<strong>Exact host</strong>に限定、<strong>初見サイトはロック維持</strong>。また、<strong>ツールバーやショートカットから手動で呼び出す</strong>運用へ切り替えると、重ね合わせ攻撃に強くなります。</p>
-</section>
-
-<section class="panel" id="links">
-  <span class="kicker">References</span>
-  <h2>公式ヘルプ・参考リンク</h2>
-  <ul>
-    <li><a href="https://support.1password.com/autofill-behavior/" target="_blank" rel="noopener">Change where a login is suggested and filled（Autofill behavior）</a></li>
-    <li><a href="https://support.1password.com/save-fill-passwords/" target="_blank" rel="noopener">Save and fill passwords（設定：Sign in automatically after autofill）</a></li>
-    <li><a href="https://support.1password.com/disable-browser-password-manager/" target="_blank" rel="noopener">ブラウザ組み込みの保存・自動入力を無効化</a></li>
-    <li><a href="https://1password.com/features/autofill/" target="_blank" rel="noopener">1Password Secure Autofill（公式機能紹介）</a></li>
-    <li><a href="https://marektoth.com/blog/dom-based-extension-clickjacking/" target="_blank" rel="noopener">DOM-based Extension Clickjacking（研究者ブログ）</a></li>
-    <li><a href="https://socket.dev/blog/password-manager-clickjacking" target="_blank" rel="noopener">Socket: Password Manager Clickjacking（まとめ）</a></li>
-    <li><a href="https://www.bleepingcomputer.com/news/security/major-password-managers-can-leak-logins-in-clickjacking-attacks/" target="_blank" rel="noopener">BleepingComputer: ニュース記事</a></li>
+<section class="panel">
+  <h2>実害を防ぐには（実運用のコツ）</h2>
+  <ul class="list">
+    <li><strong>候補の自動表示をオフ</strong>（拡張の <em>Settings → Autofill &amp; save</em>）。</li>
+    <li>各アイテムは<strong>Exact host</strong>に限定／怪しいサイトは<strong>Never fill</strong>。</li>
+    <li>初見サイトでは拡張を<strong>ロック維持</strong>→必要時のみ解錠。</li>
+    <li>ツールバー／ショートカットから<strong>手動で呼び出す</strong>運用に。</li>
   </ul>
 </section>
 
-<footer class="small">
-  <p>最終更新：<time datetime="2025-08-21T00:00:00+09:00">2025-08-21（JST）</time>｜制作：<a href="#">web忍者（サンプル）</a></p>
-  <p>
-    <a class="btn" href="https://twitter.com/intent/tweet?text=%E3%80%90%E6%B3%A8%E6%84%8F%E5%96%9A%E8%B5%B7%E3%80%91%E3%82%AF%E3%83%AA%E3%83%83%E3%82%AF%E3%82%B8%E3%83%A3%E3%83%83%E3%82%AD%E3%83%B3%E3%82%B0%E3%81%A71Password%E3%81%AE%E8%87%AA%E5%8B%95%E5%85%A5%E5%8A%9B%E3%81%8C%E6%82%AA%E7%94%A8%E3%81%95%E3%82%8C%E3%82%8B%E6%81%90%E3%82%8C%20-%20%E5%AF%BE%E7%AD%96%E3%81%AF%E3%80%8C%E5%80%99%E8%A3%9C%E8%87%AA%E5%8B%95%E8%A1%A8%E7%A4%BA%E3%82%AA%E3%83%95%E3%80%8D%E3%80%81%E3%80%8CExact%20host%E9%99%90%E5%AE%9A%E3%80%8D&url=https%3A%2F%2Fexample.com%2Fclickjacking-1password" target="_blank" rel="noopener">X（旧Twitter）で共有</a>
-  </p>
+<section class="panel" id="dev">
+  <h2>検証モード（カード候補を“実際に表示”）</h2>
+  <p class="note"><strong>自己検証用・安全設計：</strong> このページは <code>form-action 'none'</code> と <code>connect-src 'none'</code> のCSPで送信・外部通信をブロックしています。<br>実カードは<strong>絶対に使わず</strong>、テスト番号（例：<code>4242 4242 4242 4242</code> など）で試してください。</p>
+  <ol class="list">
+    <li>1Passwordに <em>Credit Card</em> アイテムを1つ以上作成（テスト用ニックネーム推奨）。</li>
+    <li>拡張を解錠し、<em>Settings → Autofill &amp; save</em> の <strong>Show autofill menu on field focus</strong> を <strong>一時的にON</strong>。</li>
+    <li>下の <strong>カード番号欄</strong> をタップ／クリック→インライン候補にカードが表示されればOK。</li>
+    <li>検証が終わったら <strong>Show autofill menu on field focus をOFF</strong> に戻す（常用はOFF推奨）。</li>
+  </ol>
+  <div class="demo" style="margin-top:8px">
+    <div class="field" style="margin-bottom:6px"><span class="pill">支払いフォーム（ダミー）</span></div>
+    <form onsubmit="event.preventDefault()">
+      <div class="field" style="margin-bottom:8px">
+        <label style="min-width:110px">名義（cc-name）</label>
+        <input type="text" autocomplete="cc-name" placeholder="TARO KKP" inputmode="text" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text)">
+      </div>
+      <div class="field" style="margin-bottom:8px">
+        <label style="min-width:110px">番号（cc-number）</label>
+        <input type="text" autocomplete="cc-number" placeholder="4242 4242 4242 4242" inputmode="numeric" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text)">
+      </div>
+      <div class="field" style="margin-bottom:8px">
+        <label style="min-width:110px">有効期限（cc-exp）</label>
+        <input type="text" autocomplete="cc-exp" placeholder="12/29" inputmode="numeric" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text)">
+      </div>
+      <div class="field">
+        <label style="min-width:110px">CVC（cc-csc）</label>
+        <input type="text" autocomplete="cc-csc" placeholder="123" inputmode="numeric" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--text)">
+      </div>
+      <div class="note" style="margin-top:10px">送信ボタンはありません（そもそもCSPで送信不可）。候補の表示だけを確認します。</div>
+    </form>
+  </div>
+  <p class="note" style="margin-top:8px">Androidで試す場合：OSの「自動入力サービス」を1Passwordに設定し、ブラウザ側の自動入力はOFFに。カード候補はキーボード上などに表示されます。</p>
+</section>
+
+<footer class="wrap">
+  <div class="note">最終更新：<time datetime="2025-08-21T00:00:00+09:00">2025-08-21（JST）</time>｜このページは教育目的の安全デモです。</div>
+  <div id="footer">
+    X <a href="https://x.com/kkp_webninja" target="_blank" rel="noopener">@kkp_webninja</a><br>
+    🏯 <a href="https://kkpwebninja.com" target="_blank" rel="noopener">web忍者の本丸</a>
+  </div>
 </footer>
+<div class="watermark">DEMO / SAFE</div>
 
   </main>  <script>
-    // ===== コピー用テキスト =====
-    const checklistText = `【クリックジャッキング対策チェックリスト】\n\n■ 1Password（デスクトップ）\n・Settings > Autofill & save > Show autofill menu on field focus：OFF\n・（任意）Sign in automatically after autofill：OFF\n\n■ 各ログインのAutofill behavior\n・Only fill on this exact host（厳密一致）または Never\n\n■ 運用\n・初見サイトは拡張ロックを維持→必要時のみ解錠\n・ツールバー/ショートカットから手動呼び出し（ページ内の小さな候補は押さない）\n・ブラウザ組み込みの保存/自動入力は無効化\n`;
-    document.getElementById('copyChecklist').addEventListener('click', async () => {
-      try{ await navigator.clipboard.writeText(checklistText); alert('チェックリストをコピーしました'); }catch(e){ prompt('コピーできない場合は全選択してコピーしてください', checklistText); }
+    const overlay = document.getElementById('overlay');
+    const logBox = document.getElementById('log');
+    const log = (msg)=>{ const t = new Date().toLocaleTimeString(); logBox.textContent = `[${t}] ${msg}
+` + logBox.textContent };
+
+    document.getElementById('toggle').addEventListener('click', (e)=>{
+      overlay.classList.toggle('active');
+      const on = overlay.classList.contains('active');
+      e.currentTarget.textContent = '悪用レイヤー：' + (on ? 'ON' : 'OFF');
+      e.currentTarget.classList.toggle('warn', on);
+      log('悪用レイヤーを ' + (on ? 'ON' : 'OFF') + ' にしました');
     });
 
-    // ===== デモ挙動 =====
-    const log = (msg)=>{
-      const box = document.getElementById('demoLog');
-      const time = new Date().toLocaleTimeString();
-      box.innerText = `[${time}] ${msg}\n` + box.innerText;
-    };
-    const overlay = document.getElementById('overlay');
-    document.getElementById('toggleOverlay').addEventListener('click', ()=>{
-      overlay.classList.toggle('active');
-      log('攻撃レイヤー：' + (overlay.classList.contains('active')?'ON':'OFF'));
-    });
-    document.getElementById('resetDemo').addEventListener('click', ()=>{
-      overlay.classList.remove('active');
-      document.getElementById('demoLog').innerText='';
-      log('デモを初期化しました');
-    });
-    document.getElementById('fakeCandidate').addEventListener('click', ()=>{
+    document.getElementById('mock').addEventListener('click', ()=>{
       if(overlay.classList.contains('active')){
-        log('（透明ボタンにクリックが奪われました）→ 隠しフォームに自動入力…送信！');
-        alert('例：隠しフォームに情報が入力されました（デモ）');
+        log('（クリックが透明ボタンに奪われました）→ 隠しフォームに入力＆送信された想定…');
+        alert('デモ：透明レイヤーにクリックが奪われました');
       }else{
-        log('正しく候補ボタンが押されました。手動呼び出しなら安全性が高い。');
+        log('候補を通常クリック：問題なし（手動呼び出し運用は安全性が高い）');
       }
     });
+
+    document.getElementById('reset').addEventListener('click', ()=>{ logBox.textContent=''; log('ログを初期化しました'); });
   </script></body>
 </html>
