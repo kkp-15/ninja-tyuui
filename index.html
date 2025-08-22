@@ -51,6 +51,9 @@
     <section class="panel hero">
       <h1>“透明レイヤーでクリックを奪う”を、かんたん体験</h1>
       <p class="note">このページは <strong>実データ送信なし・外部通信なし・実1Password UI呼び出しなし</strong> の安全な疑似体験サイトです。仕組みだけ理解できます。</p>
+        <div class="field" style="margin-top:8px">
+          <button class="btn" id="copyAll" type="button">このページのHTMLを全コピー</button>
+        </div>
     </section><section class="panel">
   <h2>なぜ安全？（ここがポイント）</h2>
   <div class="safe-grid">
@@ -164,5 +167,25 @@
     });
 
     document.getElementById('reset').addEventListener('click', ()=>{ logBox.textContent=''; log('ログを初期化しました'); });
+  </script>  <script>
+    (function(){
+      const btn = document.getElementById('copyAll');
+      if(!btn) return;
+      btn.addEventListener('click', async () => {
+        const html = '<!DOCTYPE html>
+' + document.documentElement.outerHTML;
+        try{
+          await navigator.clipboard.writeText(html);
+          alert('ページのHTMLをコピーしました');
+        }catch(e){
+          // フォールバック（古いブラウザや権限NG時）
+          const ta = document.createElement('textarea');
+          ta.value = html; document.body.appendChild(ta); ta.select();
+          try{ document.execCommand('copy'); alert('コピーしました（フォールバック）'); }
+          catch(e2){ prompt('コピーできない場合は全選択してコピーしてください', html); }
+          ta.remove();
+        }
+      });
+    })();
   </script></body>
 </html>
